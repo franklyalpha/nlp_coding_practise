@@ -1,0 +1,30 @@
+This note is set particularly for implementing language generative models using PyTorch and
+transformer structures.
+Realizing the project not only requires defining models, but also how you should embed those data
+so they could be used for training.
+https://huggingface.co/blog/how-to-train
+
+
+Therefore you might also need to implement the interface for looking for datasets.
+
+On the other hand, you will also consider implementing RLHF techniques for fine-tuning pre-trained language
+models. You also need to collect datasets in that case and implement a reward model for
+language models to interact with, and fine tune.
+https://huggingface.co/blog/rlhf
+
+So you will need 2 packages, one for pre-training language model, and another one for fine-tuning
+using RLHF.
+
+Finally the whole procedure will be implemented in "main.py", and should consider rename as "method.py",
+like what Wu Ziyi did for all his  repositories.
+
+
+https://colab.research.google.com/github/pytorch/tutorials/blob/gh-pages/_downloads/b5fa995b1432ebc93ea7bfe7ec9daed1/text_sentiment_ngrams_tutorial.ipynb#scrollTo=NDSHHIR94uyk
+above colab tutorial helps converting text segments into trainable numeric values for representing each tokens
+for training.
+
+https://github.com/baidu/lac:
+for Chinese characters/phrases tokenization.
+
+https://discuss.pytorch.org/t/how-to-create-batches-of-a-list-of-varying-dimension-tensors/50773/14:
+using "collate_fn" for DataLoader to integrate sequences of samples with varying sequence lengths.
