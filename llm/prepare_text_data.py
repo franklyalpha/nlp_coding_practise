@@ -25,9 +25,11 @@ EOS_TOKEN = "<EOS>"
 UNKNOWN_TOKEN = "<unk>"
 BATCH_SIZE = 400
 
+
 def yield_tokens(data_iter, tokenizer):
     for text in data_iter:
-        yield tokenizer(text)
+        # debug = tokenizer(text)[2:]
+        yield tokenizer(text)[2:-1]
 
 
 def simple_text_preprocessing(lines, bos_eos):
@@ -84,7 +86,7 @@ def translate_text_to_vocab(all_lines, vocab, tokenizer):
     all_lines_tensor = []
     for i in range(len(all_lines)):
         vocab_result = [vocab([BOS_TOKEN])[0]]
-        vocab_result.extend(vocab(tokenizer(all_lines[i])))
+        vocab_result.extend(vocab(tokenizer(all_lines[i])[2:-1]))
         vocab_result.append(vocab([EOS_TOKEN])[0])
         vocab_result = torch.Tensor(vocab_result)
         all_lines_tensor.append(vocab_result)
@@ -93,10 +95,13 @@ def translate_text_to_vocab(all_lines, vocab, tokenizer):
     return create_vector_tensor(all_lines_tensor, eos_token, longest_len)
 
 
-def create_vector_tensor(all_lines_tensor, eos_token, longest_len):
-    vector_tensor = torch.ones((len(all_lines_tensor), longest_len)) * eos_token
+def create_vector_tensor(all_lines_tensor, padding_token, longest_len, pad_left=False):
+    vector_tensor = torch.ones((len(all_lines_tensor), longest_len)) * padding_token
     for j in range(len(all_lines_tensor)):
-        vector_tensor[j, :all_lines_tensor[j].size()[0]] = all_lines_tensor[j]
+        if pad_left:
+            vector_tensor[j, (longest_len - all_lines_tensor[j].size()[0]):] = all_lines_tensor[j]
+        else:
+            vector_tensor[j, :all_lines_tensor[j].size()[0]] = all_lines_tensor[j]
     return vector_tensor
 
 
@@ -131,15 +136,13 @@ def dataloader_collate_fn(data):
     # first iterate through all tensors and determine the longest sequence length.
     longest_len = 0
     all_lines_tensor = []
-    eos_token = None
+    bos_token = vocab.lookup_indices([BOS_TOKEN])[0]
     for tensor, text in data:
         # tensor is a torch tensor, each numeric represents a tokenized word.
         # text is a str corresponding to tensor.
         longest_len = max(longest_len, tensor.shape[-1])
         all_lines_tensor.append(tensor.flatten())
-        if eos_token is None:
-            eos_token = tensor[:, -1]
-    return create_vector_tensor(all_lines_tensor, eos_token, longest_len)
+    return create_vector_tensor(all_lines_tensor, bos_token, longest_len, pad_left=True)
 
 
 if __name__ == "__main__":
@@ -150,6 +153,7 @@ if __name__ == "__main__":
     curr_directory = os.path.abspath("")
     vocab = torch.load(f"{curr_directory}\\vocab_obj")
     print("vocab loaded!")
+
     # below is the code for creating vocab object from loaded text datasets.
     # vocab = build_vocab_from_iterator(yield_tokens(tokenize_iter, tokenizer), specials=[UNKNOWN_TOKEN])
     # vocab.set_default_index(vocab[UNKNOWN_TOKEN])
@@ -161,17 +165,18 @@ if __name__ == "__main__":
     above line assigns all unknown tokens to "<unk>", a safety measure. Realizing "specials" parameter must
     include default vocab. Besides, this process can take quite a long period of time to process. Beware.
     
-    
     below is a sample usage of vocab, for words that must exist in input data:
     print(vocab(["the", "EOS"]))  
     which returns a list of indexes for the two words. Looks like frequency is adopted for making the order.
     """
     # once vocabs are being acquired, need to "translate" each sentence into vectorized format.
     # sentence_vocab_tensor = translate_text_to_vocab(all_lines, vocab, tokenizer)
-    print("data tensor created!")
-    dataset = LLMTrainingDataset(all_lines, vocab, tokenizer)
+    # print("data tensor created!")
+    # dataset = LLMTrainingDataset(all_lines, vocab, tokenizer)
+    # torch.save(dataset, f"{curr_directory}\\dataset_instance")
+    # print("dataset saved!")
 
-    # dataset = torch.load(f"{curr_directory}\\dataset_instance")
+    dataset = torch.load(f"{curr_directory}\\dataset_instance")
     dataloader = DataLoader(dataset, BATCH_SIZE, shuffle=True, collate_fn=dataloader_collate_fn)
     for index, tensor in enumerate(dataloader):  # this is the standard method for loading data.
         # tensor has shape: [batch_size, sequence_len]; text: Tuple[str] with <batch_size> strings corresponding
