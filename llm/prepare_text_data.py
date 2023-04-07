@@ -24,8 +24,7 @@ BOS_TOKEN = "<BOS>"
 EOS_TOKEN = "<EOS>"
 UNKNOWN_TOKEN = "<unk>"
 MASK_TOKEN = "<mask>"
-BATCH_SIZE = 4
-
+BATCH_SIZE = 16
 
 def yield_tokens(data_iter, tokenizer):
     for text in data_iter:

@@ -4,14 +4,17 @@ from llm.prepare_text_data import *
 
 
 class BaseLGM(nn.Module):
-    def __init__(self, vocab, model_dim=512):
+    def __init__(self, vocab, model_dim=512, n_head=8,
+                 dim_feedforward=2048, enc_layer=6, dec_layer=6):
         super(BaseLGM, self).__init__()
         # will need to define embedding layers apart from transformer layers. Also it would be recommended
         # if you have time, that you can consider implementing multi-head transformer mechanisms from scratch
         # for practises.
         num_words = len(vocab)
         self.word_embedding = nn.Embedding(num_words, model_dim)
-        self.transformer_model = nn.Transformer(d_model=model_dim)
+        self.transformer_model = nn.Transformer(d_model=model_dim, nhead=n_head,
+                                                dim_feedforward=dim_feedforward,
+                                                num_encoder_layers=enc_layer, num_decoder_layers=dec_layer)
         self.embedding_decode = nn.Linear(model_dim, num_words)
         self.vocab = vocab
 
