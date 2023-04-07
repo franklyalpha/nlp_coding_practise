@@ -23,7 +23,8 @@ import re
 BOS_TOKEN = "<BOS>"
 EOS_TOKEN = "<EOS>"
 UNKNOWN_TOKEN = "<unk>"
-BATCH_SIZE = 400
+MASK_TOKEN = "<mask>"
+BATCH_SIZE = 4
 
 
 def yield_tokens(data_iter, tokenizer):
@@ -73,26 +74,21 @@ def load_text_files_by_lines(directory_path, bos_eos=False):
     return all_lines
 
 
-def translate_text_to_vocab(all_lines, vocab, tokenizer):
+def translate_text_to_vocab(split_tokens, vocab):
     """
     realizing this method only converts data into numeric indexing for each token,
     still require embedding modules to convert into vector tensors for each sentence.
     :param all_lines: a list of strings
     :param vocab:
-    :param tokenizer:
     :return:
     """
-    longest_len = 0
-    all_lines_tensor = []
-    for i in range(len(all_lines)):
-        vocab_result = [vocab([BOS_TOKEN])[0]]
-        vocab_result.extend(vocab(tokenizer(all_lines[i])[2:-1]))
-        vocab_result.append(vocab([EOS_TOKEN])[0])
-        vocab_result = torch.Tensor(vocab_result)
-        all_lines_tensor.append(vocab_result)
-        longest_len = max(longest_len, vocab_result.size()[0])
+    vocab_result = [vocab([BOS_TOKEN])[0]]
+    vocab_result.extend(vocab(split_tokens))
+    vocab_result.append(vocab([EOS_TOKEN])[0])
+    vocab_result = torch.Tensor(vocab_result).long()
+    longest_len = vocab_result.size()[0]
     eos_token = vocab.lookup_indices([EOS_TOKEN])[0]
-    return create_vector_tensor(all_lines_tensor, eos_token, longest_len)
+    return create_vector_tensor([vocab_result], eos_token, longest_len)
 
 
 def create_vector_tensor(all_lines_tensor, padding_token, longest_len, pad_left=False):
@@ -110,6 +106,7 @@ class LLMTrainingDataset(Dataset):
     """
     modified so that
     """
+
     def __init__(self, all_lines_text, vocab, tokenizer):
         super(LLMTrainingDataset, self).__init__()
         self.all_lines_text = all_lines_text
@@ -124,7 +121,8 @@ class LLMTrainingDataset(Dataset):
 
     def __getitem__(self, index) -> T_co:
         line = self.all_lines_text[index]
-        tokenized_line = translate_text_to_vocab([line], vocab, tokenizer)
+        split_line = self.tokenizer(line)[2:-1]
+        tokenized_line = translate_text_to_vocab(split_line, self.vocab)
         return tokenized_line, line
 
 
@@ -136,13 +134,17 @@ def dataloader_collate_fn(data):
     # first iterate through all tensors and determine the longest sequence length.
     longest_len = 0
     all_lines_tensor = []
-    bos_token = vocab.lookup_indices([BOS_TOKEN])[0]
+    first_line_token, _ = data[0]
+    bos_token = first_line_token[:, 0]
+    eos_token = first_line_token[:, -1]
     for tensor, text in data:
         # tensor is a torch tensor, each numeric represents a tokenized word.
         # text is a str corresponding to tensor.
         longest_len = max(longest_len, tensor.shape[-1])
         all_lines_tensor.append(tensor.flatten())
-    return create_vector_tensor(all_lines_tensor, bos_token, longest_len, pad_left=True)
+    return create_vector_tensor(all_lines_tensor, bos_token, longest_len, pad_left=True), \
+        create_vector_tensor(all_lines_tensor, eos_token, longest_len, pad_left=False)
+    # src, tgt respectively.
 
 
 if __name__ == "__main__":
@@ -159,6 +161,7 @@ if __name__ == "__main__":
     # vocab.set_default_index(vocab[UNKNOWN_TOKEN])
     # vocab.append_token(BOS_TOKEN)
     # vocab.append_token(EOS_TOKEN)
+    # vocab.append_token(MASK_TOKEN)
     # torch.save(vocab, f"{curr_directory}\\vocab_obj")
     # print("vocab object saved")
     """
@@ -170,15 +173,15 @@ if __name__ == "__main__":
     which returns a list of indexes for the two words. Looks like frequency is adopted for making the order.
     """
     # once vocabs are being acquired, need to "translate" each sentence into vectorized format.
-    # sentence_vocab_tensor = translate_text_to_vocab(all_lines, vocab, tokenizer)
-    # print("data tensor created!")
     # dataset = LLMTrainingDataset(all_lines, vocab, tokenizer)
     # torch.save(dataset, f"{curr_directory}\\dataset_instance")
     # print("dataset saved!")
 
     dataset = torch.load(f"{curr_directory}\\dataset_instance")
     dataloader = DataLoader(dataset, BATCH_SIZE, shuffle=True, collate_fn=dataloader_collate_fn)
-    for index, tensor in enumerate(dataloader):  # this is the standard method for loading data.
+    for index, (src_tensor, tgt_tensor) in enumerate(dataloader):  # this is the standard method for loading data.
         # tensor has shape: [batch_size, sequence_len]; text: Tuple[str] with <batch_size> strings corresponding
         # to each tensor.
-        a = tensor.T  #[seq_len, batch_size]
+        a = src_tensor.T  # [seq_len, batch_size]
+        b = tgt_tensor.T
+

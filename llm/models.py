@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
-from prepare_text_data import *
+from llm.prepare_text_data import *
 
 
 class BaseLGM(nn.Module):
-    def __init__(self, num_words, vocab, model_dim=512):
+    def __init__(self, vocab, model_dim=512):
         super(BaseLGM, self).__init__()
         # will need to define embedding layers apart from transformer layers. Also it would be recommended
         # if you have time, that you can consider implementing multi-head transformer mechanisms from scratch
         # for practises.
+        num_words = len(vocab)
         self.word_embedding = nn.Embedding(num_words, model_dim)
         self.transformer_model = nn.Transformer(d_model=model_dim)
         self.embedding_decode = nn.Linear(model_dim, num_words)
@@ -25,6 +26,7 @@ class BaseLGM(nn.Module):
         # returned result has shape: [dec_seq_len, batch, num_words]
         return nn.functional.softmax(decode_res, dim=-1)  # this is for loss calculation.
 
+    @torch.no_grad()
     def generate(self, src, tgt, src_mask=None, tgt_mask=None):
         # need to ensure inputs have shape: [seq_len, 1, 1], representing [sequence length, batch, token_size)
         assert src.shape[1] == 1 and tgt.shape[1] == 1
@@ -37,10 +39,11 @@ if __name__ == "__main__":
     curr_directory = os.path.abspath("")
     vocab = torch.load(f"{curr_directory}\\vocab_obj")
     print("finished loading vocab\n")
-    model = BaseLGM(len(vocab), vocab)
+    model = BaseLGM(vocab)
     src = torch.randint(0, 300, (12, 5))
     tgt = torch.randint(0, 400, (10, 5))
     forward_test = model(src, tgt)
+    argmax_res = torch.argmax(forward_test, dim=-1)
     print("forward test complete")
     print(forward_test.shape)
     print(torch.sum(forward_test[0][0]))
