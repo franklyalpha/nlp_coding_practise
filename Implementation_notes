@@ -28,3 +28,37 @@ for Chinese characters/phrases tokenization.
 
 https://discuss.pytorch.org/t/how-to-create-batches-of-a-list-of-varying-dimension-tensors/50773/14:
 using "collate_fn" for DataLoader to integrate sequences of samples with varying sequence lengths.
+
+RLHF:
+after you've finished writing the code for training the language model, now you should move
+on to this step which handles how language models shall be finetuned.
+The procedure assumes a trained language model, and a supervised dataset consisting of pairs of
+responses towards one same prompt, with labels showing which prompt is better or worse than
+the other. This dataset will be used to train a reward model which acts like an environment
+in reinforcement learning setting, where the trained language model would be the "agent".
+
+Thus first need to define reward model, and set up mechanisms for training it. Last will
+create mechanisms for trained language models to interact with the reward model.
+
+As currently there are not access to RLHF dataset, it's possible to first start with implementing
+the fine-tuning techniques. Realizing in this case the reward model just need to output a
+scalar regardless of what input is given.
+
+Need a way to handle the loss of gradient in RLHF. Realizing generating the entire sequence
+might lead to problems, as generating sequences require taking argmax, which eliminates
+gradient signal for LGM.
+Therefore I just added a new method in model, as I realized rlhf only needs to fine tune
+transformer model, not the linear mapper to words.
+In this case, realizing the dataset used to train the model should contain the following:
+given a prompt and asking the language model to generate two responses. However both the prompt
+and two responses will not be fed into last layer linear mapping to num_words dimension.
+Instead those transformer-model outputs will be directly associated with human labelling signals
+for training the reward model.
+
+choice of RL algorithm:
+policy gradient suffers from problems of high variance;
+actor-critic seems to work;
+Q-learning is mostly applied on discrete settings?
+model-based Rl doesn't require a model here in this case.
+
+actor-critic; need to review notes from CS285, and implemented codebase.

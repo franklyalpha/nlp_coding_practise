@@ -44,6 +44,6 @@ for epoch in range(EPOCH):
         optimizer.step()
         total_loss += loss
         if index % 100 == 0:
-            print(epoch, index)
+            print(f"epoch: {epoch}, batch index: {index}, loss: {loss.item()}")
     print("epoch {}".format(epoch) + " loss: " + str(total_loss))
 

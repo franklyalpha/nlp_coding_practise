@@ -16,7 +16,6 @@ class BaseLGM(nn.Module):
                                                 dim_feedforward=dim_feedforward,
                                                 num_encoder_layers=enc_layer, num_decoder_layers=dec_layer)
         self.embedding_decode = nn.Linear(model_dim, num_words)
-        self.vocab = vocab
 
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         # first require an embedding layer
@@ -29,12 +28,24 @@ class BaseLGM(nn.Module):
         # returned result has shape: [dec_seq_len, batch, num_words]
         return nn.functional.softmax(decode_res, dim=-1)  # this is for loss calculation.
 
+    def rlhf_forward(self, src, tgt, src_mask=None, tgt_mask=None):
+        # first require an embedding layer
+        # need to ensure batch size are the same
+        assert src.shape[1] == tgt.shape[1]
+        src_embed = self.word_embedding(src)
+        tgt_embed = self.word_embedding(tgt)
+        transformer_res = self.transformer_model(src_embed, tgt_embed, src_mask, tgt_mask)
+        return transformer_res  # [dec_seq_len, batch, model_dim]
+
     @torch.no_grad()
-    def generate(self, src, tgt, src_mask=None, tgt_mask=None):
-        # need to ensure inputs have shape: [seq_len, 1, 1], representing [sequence length, batch, token_size)
-        assert src.shape[1] == 1 and tgt.shape[1] == 1
+    def generate(self, src, vocab, generate_limit=200, src_mask=None, tgt_mask=None):
+        # need to ensure inputs have shape: [seq_len, 1], representing [sequence length, batch)
+        assert src.shape[1] == 1
+        tgt = torch.zeros((generate_limit, 1), dtype=torch.int64)
+        tgt[0, :] = vocab.lookup_indices([BOS_TOKEN])[0]
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(generate_limit, src.device)
         soft_res = self.forward(src, tgt, src_mask, tgt_mask)  # [dec_seq_len, 1, num_words]
-        return self.vocab.lookup_tokens(torch.argmax(soft_res, dim=-1).flatten().tolist())
+        return vocab.lookup_tokens(torch.argmax(soft_res, dim=-1).flatten().tolist())
 
 
 if __name__ == "__main__":
@@ -51,8 +62,7 @@ if __name__ == "__main__":
     print(forward_test.shape)
     print(torch.sum(forward_test[0][0]))
     print("")
-    generate_test = model.generate(src[:, 0].unsqueeze(-1), tgt[:, 0].unsqueeze(-1))
+    generate_test = model.generate(src[:, 0].unsqueeze(-1), vocab)
     print("generate test complete. ")
     print(tgt[:, 0])
     print(str(generate_test) + "\n")
-
