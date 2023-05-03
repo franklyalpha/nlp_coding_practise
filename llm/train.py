@@ -14,7 +14,7 @@ dataset = torch.load(f"{curr_directory}\\dataset_instance")
 dataloader = DataLoader(dataset, BATCH_SIZE, shuffle=True, collate_fn=dataloader_collate_fn)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = BaseLGM(vocab, 64, 4, 128, 3, 3)
+model = BaseLGM(len(vocab), 64, 4, 128, 3, 3)
 model.to(device)
 lr = 1e-4
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=0)
