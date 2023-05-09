@@ -62,3 +62,4 @@ Q-learning is mostly applied on discrete settings?
 model-based Rl doesn't require a model here in this case.
 
 actor-critic; need to review notes from CS285, and implemented codebase.
+https://github.com/lucidrains/PaLM-rlhf-pytorch/blob/main/palm_rlhf_pytorch/ppo.py#L32

@@ -25,14 +25,29 @@ import numpy as np
 import llm.models as lgm
 
 
+class RLHFEnv:
+    def __init__(self):
+        super(RLHFEnv, self).__init__()
+
+    def step(self):
+        pass
+
+    def reset(self):
+        pass
+
+    def modify_prompt_dataset(self):
+        pass
+
+
 class AbstractRewardModel(nn.Module):
-    def __init__(self, model_dim=512):
+    def __init__(self, model_dim=512, token_limit=200):
         super(AbstractRewardModel, self).__init__()
         # just create a linear layer for producing a scalar output
-        self._init_network(model_dim)
+        self._init_network(model_dim, token_limit)
 
-    def _init_network(self, model_dim):
-        self.reward_model = nn.Linear(model_dim, 1)
+    def _init_network(self, model_dim, token_limit):
+        self.embedding_mapping = nn.Linear(model_dim, 1)
+        self.sequence_mapping = nn.Linear(token_limit, 1)
 
     def forward(self, input_prompt, response_initial, response_tuned):
         """
@@ -49,21 +64,30 @@ class AbstractRewardModel(nn.Module):
             using KL divergence of scores between two responses.
 
         """
+
         assert input_prompt.shape[1] == response_initial.shape[1] \
                and input_prompt.shape[1] == response_tuned.shape[1]
+        self.sequence_mapping.weight.requires_grad = False
+        self.embedding_mapping.weight.requires_grad = False
+        res = self.embedding_mapping(response_tuned)
+        res = self.sequence_mapping(res.permute(1, 2, 0))
 
-        return self.reward_model(response_tuned)  # just a random number
+        # require implementing KL-divergence loss to ensure generated results don't
+        # deviate that much from initial language model!!!
 
-    def fine_tune_one_response(self, ldm_model: lgm.BaseLGM, prompt_set):
+        return res.flatten().sum()  # just a random number
+
+    def fine_tune_one_trajectory(self, ldm_model: lgm.BaseLGM, prompt_set):
         """
 
         :param ldm_model:
-        :param prompt_set:
+        :param prompt_set: In this setting, prompt_set is a sequence of prompts making up
+            a conversation, which results in one trajectory.
         :return:
         """
         initial_model = copy.deepcopy(ldm_model)
 
-    def _fine_tune_one_observation(self, prompt,
+    def _one_observation_reward(self, prompt,
                                    initial_model: lgm.BaseLGM,
                                    current_model: lgm.BaseLGM):
         """
