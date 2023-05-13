@@ -47,6 +47,7 @@ class RLHFTrainer:
         return reward_to_go
 
     def finetune(self):
+
         prompts = torch.randint(0, 300, (12, self.prompt_batch_size)).to(self.device)
         self._finetune_one_batch(prompts)
 
@@ -100,13 +101,14 @@ class RLHFTrainer:
 
 
 # for debug purposes only
-curr_directory = os.path.abspath("../llm")
-vocab = torch.load(f"{curr_directory}\\vocab_obj")
-GENERATE_LIMIT = 200
-prompt_batch_size = 16
-preference_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
-initial_model = BaseLGM(len(vocab))
-critic_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
+if __name__ == "__main__":
+    curr_directory = os.path.abspath("../llm")
+    vocab = torch.load(f"{curr_directory}\\vocab_obj")
+    GENERATE_LIMIT = 200
+    prompt_batch_size = 16
+    preference_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
+    initial_model = BaseLGM(len(vocab))
+    critic_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
 
-rlhf_trainer = RLHFTrainer(vocab, preference_model, initial_model, critic_model)
-rlhf_trainer.finetune()
+    rlhf_trainer = RLHFTrainer(vocab, preference_model, initial_model, critic_model)
+    rlhf_trainer.finetune()

@@ -70,13 +70,13 @@ class AbstractRewardModel(nn.Module):
         res = self.embedding_mapping(response_tuned)
         res = self.sequence_mapping(res.permute(1, 2, 0))
 
-        # require implementing KL-divergence loss to ensure generated results don't
-        # deviate that much from initial language model!!!
-        # realizing the results of response_initial and response_tuned are all being softmaxed, so
-        # they represent probabilities. To perform KL divergence, first need to find samples where response_tuned
-        # would generate, then determine the probability that initial_model (represented by response_initial)
-        # would predict, use that as one KL divergence term.
-        # then need to sum over all probabilities, across each term in a sequence, and across all sequences in one batch
+        # below implements KL divergence calculation: following: sum(tuned_prob * log(tuned_prob / initial_prob)),
+        # applied on "x", or samples selected by tuned model.
+        tuned_selection_prob, selection_indices = torch.max(response_tuned, dim=-1)
+        tuned_selection_prob = tuned_selection_prob.flatten()
+        initial_selection_prob = torch.gather(response_initial, -1,
+                                              selection_indices.unsqueeze(-1)).squeeze(-1).flatten()
+        kl_terms = tuned_selection_prob * torch.log(tuned_selection_prob / (1e-8 + initial_selection_prob))
+        kl_loss = torch.sum(kl_terms)
 
-
-        return res.flatten().sum()  # just a random number
+        return res.flatten().sum() + kl_loss

@@ -21,6 +21,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=0)
 EPOCH = 10
 
 print("number of batches: " + str(len(dataloader)))
+
+
 # below will implement the training process. Realizing that one instance of batched data is required.
 for epoch in range(EPOCH):
     total_loss = 0
