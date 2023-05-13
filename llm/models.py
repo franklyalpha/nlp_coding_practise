@@ -10,12 +10,12 @@ class BaseLGM(nn.Module):
         # will need to define embedding layers apart from transformer layers. Also it would be recommended
         # if you have time, that you can consider implementing multi-head transformer mechanisms from scratch
         # for practises.
-        num_words = vocab_len
-        self.word_embedding = nn.Embedding(num_words, model_dim)
+        self.num_words = vocab_len
+        self.word_embedding = nn.Embedding(self.num_words, model_dim)
         self.transformer_model = nn.Transformer(d_model=model_dim, nhead=n_head,
                                                 dim_feedforward=dim_feedforward,
                                                 num_encoder_layers=enc_layer, num_decoder_layers=dec_layer)
-        self.embedding_decode = nn.Linear(model_dim, num_words)
+        self.embedding_decode = nn.Linear(model_dim, self.num_words)
 
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         # first require an embedding layer
@@ -35,17 +35,27 @@ class BaseLGM(nn.Module):
         # only fine-tune transformer, so eliminate gradient signal for embedding.
         for param in self.word_embedding.parameters():
             param.requires_grad = False
+        for param in self.embedding_decode.parameters():
+            param.requires_grad = False
+
         src_embed = self.word_embedding(src)
         tgt_embed = self.word_embedding(tgt)
-
         transformer_res = self.transformer_model(src_embed, tgt_embed, src_mask, tgt_mask)
-        return transformer_res  # [dec_seq_len, batch, model_dim]
+        decode_res = nn.functional.softmax(self.embedding_decode(transformer_res))
+
+        # in case there are follow-up trainings, reset requires_grad to True.
+        for param in self.word_embedding.parameters():
+            param.requires_grad = True
+        for param in self.embedding_decode.parameters():
+            param.requires_grad = True
+
+        return decode_res  # [dec_seq_len, batch, vocab_len]
 
     @torch.no_grad()
     def generate(self, src, vocab, generate_limit=200, src_mask=None):
         # need to ensure inputs have shape: [seq_len, 1], representing [sequence length, batch)
         assert src.shape[1] == 1
-        tgt = torch.zeros((generate_limit, 1), dtype=torch.int64)
+        tgt = torch.zeros((generate_limit, 1), dtype=torch.int64).to(src.device)
         tgt[0, :] = vocab.lookup_indices([BOS_TOKEN])[0]
         tgt_mask = nn.Transformer.generate_square_subsequent_mask(generate_limit, src.device)
         soft_res = self.forward(src, tgt, src_mask, tgt_mask)  # [dec_seq_len, 1, num_words]
@@ -54,10 +64,10 @@ class BaseLGM(nn.Module):
     def rlhf_generate(self, src, vocab, generate_limit=200, src_mask=None):
         # need to ensure inputs have shape: [seq_len, 1], representing [sequence length, batch)
         assert src.shape[1] == 1
-        tgt = torch.zeros((generate_limit, 1), dtype=torch.int64)
+        tgt = torch.zeros((generate_limit, 1), dtype=torch.int64).to(src.device)
         tgt[0, :] = vocab.lookup_indices([BOS_TOKEN])[0]
         tgt_mask = nn.Transformer.generate_square_subsequent_mask(generate_limit, src.device)
-        return self.rlhf_forward(src, tgt, src_mask, tgt_mask)  # [dec_seq_len, batch, model_dim]
+        return self.rlhf_forward(src, tgt, src_mask, tgt_mask)  # [dec_seq_len, batch, vocab_len]
 
 
 if __name__ == "__main__":

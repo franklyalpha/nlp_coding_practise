@@ -55,6 +55,18 @@ and two responses will not be fed into last layer linear mapping to num_words di
 Instead those transformer-model outputs will be directly associated with human labelling signals
 for training the reward model.
 
+
+Below are comments quoted from fine_tune_llm.py file, for calculating KL divergence between the response from
+initial model and fine-tuned model.
+# require implementing KL-divergence loss to ensure generated results don't
+# deviate that much from initial language model!!!
+# realizing the results of response_initial and response_tuned are all being softmaxed, so
+# they represent probabilities. To perform KL divergence, first need to find samples where response_tuned
+# would generate, then determine the probability that initial_model (represented by response_initial)
+# would predict, use that as one KL divergence term.
+# then need to sum over all probabilities, across each term in a sequence, and across all sequences in one batch
+
+
 choice of RL algorithm:
 policy gradient suffers from problems of high variance;
 actor-critic seems to work;

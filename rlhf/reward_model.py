@@ -62,9 +62,7 @@ class AbstractRewardModel(nn.Module):
 
         :return: a scalar score as reward signal, calculated following RLHF's paper,
             using KL divergence of scores between two responses.
-
         """
-
         assert input_prompt.shape[1] == response_initial.shape[1] \
                and input_prompt.shape[1] == response_tuned.shape[1]
         self.sequence_mapping.weight.requires_grad = False
@@ -74,28 +72,11 @@ class AbstractRewardModel(nn.Module):
 
         # require implementing KL-divergence loss to ensure generated results don't
         # deviate that much from initial language model!!!
+        # realizing the results of response_initial and response_tuned are all being softmaxed, so
+        # they represent probabilities. To perform KL divergence, first need to find samples where response_tuned
+        # would generate, then determine the probability that initial_model (represented by response_initial)
+        # would predict, use that as one KL divergence term.
+        # then need to sum over all probabilities, across each term in a sequence, and across all sequences in one batch
+
 
         return res.flatten().sum()  # just a random number
-
-    def fine_tune_one_trajectory(self, ldm_model: lgm.BaseLGM, prompt_set):
-        """
-
-        :param ldm_model:
-        :param prompt_set: In this setting, prompt_set is a sequence of prompts making up
-            a conversation, which results in one trajectory.
-        :return:
-        """
-        initial_model = copy.deepcopy(ldm_model)
-
-    def _one_observation_reward(self, prompt,
-                                   initial_model: lgm.BaseLGM,
-                                   current_model: lgm.BaseLGM):
-        """
-
-        :param prompt:
-        :param initial_model:
-        :param current_model:
-        :return:
-        """
-        # the key is to make the weight of transformer trainable, so loss
-        # could be calculated along the way.
