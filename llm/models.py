@@ -106,7 +106,7 @@ class GPT(BaseLGM):
         """
         memory = self.word_embedding(src)
         tgt_embedded = self.word_embedding(tgt)
-        transformer_res = self.transformer_model(memory, tgt_embedded)
+        transformer_res = self.transformer_model(tgt_embedded, memory)
         decode_res = self.embedding_decode(transformer_res)
         return nn.functional.softmax(decode_res, dim=-1)
 
