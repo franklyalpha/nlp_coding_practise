@@ -104,11 +104,11 @@ class RLHFTrainer:
 if __name__ == "__main__":
     curr_directory = os.path.abspath("../llm")
     vocab = torch.load(f"{curr_directory}\\vocab_obj")
-    GENERATE_LIMIT = 200
-    prompt_batch_size = 16
+    GENERATE_LIMIT = 10
+    prompt_batch_size = 8
     preference_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
     initial_model = BaseLGM(len(vocab))
     critic_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
 
-    rlhf_trainer = RLHFTrainer(vocab, preference_model, initial_model, critic_model)
+    rlhf_trainer = RLHFTrainer(vocab, preference_model, initial_model, critic_model, generate_limit=GENERATE_LIMIT)
     rlhf_trainer.finetune()

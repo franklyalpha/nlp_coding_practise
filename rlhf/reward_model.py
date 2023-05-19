@@ -61,7 +61,7 @@ class AbstractRewardModel(nn.Module):
             model_size is the output shape of the language generative model, which is usually 512.
 
         :return: a scalar score as reward signal, calculated following RLHF's paper,
-            using KL divergence of scores between two responses.
+            and adopting KL divergence of scores between two responses.
         """
         assert input_prompt.shape[1] == response_initial.shape[1] \
                and input_prompt.shape[1] == response_tuned.shape[1]
@@ -72,6 +72,7 @@ class AbstractRewardModel(nn.Module):
 
         # below implements KL divergence calculation: following: sum(tuned_prob * log(tuned_prob / initial_prob)),
         # applied on "x", or samples selected by tuned model.
+        # response_tuned has size [seq_len, batch_size, model_dim]
         tuned_selection_prob, selection_indices = torch.max(response_tuned, dim=-1)
         tuned_selection_prob = tuned_selection_prob.flatten()
         initial_selection_prob = torch.gather(response_initial, -1,
