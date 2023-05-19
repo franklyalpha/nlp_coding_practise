@@ -59,6 +59,8 @@ class RLHFTrainer:
         """
         total_preference_score = []
         critic_prediction_score = []  # for updating critic model
+        response_likelihood = []
+        # for calculating the probability of generating the response, simulating policy in RL
 
         # below perform trajectory evaluation, a standard step for adopting reinforcement learning algorithm
         for prompt_idx in range(self.prompt_batch_size):
@@ -68,6 +70,8 @@ class RLHFTrainer:
                                                                           generate_limit=self.generate_limit)
             curr_model_response = self.actor_model.rlhf_generate(curr_prompt, vocab,
                                                                  generate_limit=self.generate_limit)
+            # [generate_limit, batch, vocab_len]; softmaxed probabilities
+            response_likelihood.append(torch.prod(torch.max(curr_model_response, dim=-1)[0].flatten()))
             preference_score = self.preference_model.forward(curr_prompt, initial_model_response,
                                                              curr_model_response)  # this is the reward signal
             critic_prediction = self.critic_model.forward(
@@ -93,8 +97,9 @@ class RLHFTrainer:
         # now update actor model. calculate advantage by: A(t) = r(t) + V(t+1) - V(t), t is time;
         advantage = total_preference_score + \
             critic_prediction_score[1:] - critic_prediction_score[:-1]
+
         # here a loss function different from log-gradient is adopted.
-        policy_loss = torch.sum(advantage * total_preference_score)
+        policy_loss = torch.sum(advantage * torch.stack(response_likelihood))
         self.actor_optimizer.zero_grad()
         policy_loss.backward()
         self.actor_optimizer.step()
@@ -107,7 +112,7 @@ if __name__ == "__main__":
     GENERATE_LIMIT = 10
     prompt_batch_size = 8
     preference_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
-    initial_model = BaseLGM(len(vocab))
+    initial_model = GPT(len(vocab))
     critic_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
 
     rlhf_trainer = RLHFTrainer(vocab, preference_model, initial_model, critic_model, generate_limit=GENERATE_LIMIT)
