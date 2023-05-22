@@ -75,3 +75,6 @@ model-based Rl doesn't require a model here in this case.
 
 actor-critic; need to review notes from CS285, and implemented codebase.
 https://github.com/lucidrains/PaLM-rlhf-pytorch/blob/main/palm_rlhf_pytorch/ppo.py#L32
+
+Spotted problem: policy loss is extremely low given the virtually invisible probability of action space.
+Adopt entropy measures, following above example implementation.

@@ -49,7 +49,8 @@ class RLHFTrainer:
     def finetune(self):
 
         prompts = torch.randint(0, 300, (12, self.prompt_batch_size)).to(self.device)
-        self._finetune_one_batch(prompts)
+        for _ in range(10):
+            self._finetune_one_batch(prompts)
 
     def _finetune_one_batch(self, input_prompt):
         """
@@ -71,7 +72,10 @@ class RLHFTrainer:
             curr_model_response = self.actor_model.rlhf_generate(curr_prompt, vocab,
                                                                  generate_limit=self.generate_limit)
             # [generate_limit, batch, vocab_len]; softmaxed probabilities
-            response_likelihood.append(torch.prod(torch.max(curr_model_response, dim=-1)[0].flatten()))
+            selected_likelihood = torch.max(curr_model_response, dim=-1)[0].flatten()
+            response_likelihood.append(torch.sum(selected_likelihood * torch.log(selected_likelihood)))
+            # what's being summed would be entropy
+
             preference_score = self.preference_model.forward(curr_prompt, initial_model_response,
                                                              curr_model_response)  # this is the reward signal
             critic_prediction = self.critic_model.forward(
@@ -99,20 +103,22 @@ class RLHFTrainer:
             critic_prediction_score[1:] - critic_prediction_score[:-1]
 
         # here a loss function different from log-gradient is adopted.
-        policy_loss = torch.sum(advantage * torch.stack(response_likelihood))
+        stacked_likelihood = torch.stack(response_likelihood)
+        policy_loss = (-1) * torch.sum(advantage * stacked_likelihood)  # -1 to invert back the log-likelihood
         self.actor_optimizer.zero_grad()
         policy_loss.backward()
         self.actor_optimizer.step()
+        print(policy_loss, critic_loss)
 
 
 # for debug purposes only
 if __name__ == "__main__":
     curr_directory = os.path.abspath("../llm")
     vocab = torch.load(f"{curr_directory}\\vocab_obj")
-    GENERATE_LIMIT = 10
-    prompt_batch_size = 8
+    GENERATE_LIMIT = 15
+    prompt_batch_size = 1
     preference_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
-    initial_model = GPT(len(vocab))
+    initial_model = GPT(len(vocab), dim_feedforward=128)
     critic_model = AbstractRewardModel(len(vocab), GENERATE_LIMIT)
 
     rlhf_trainer = RLHFTrainer(vocab, preference_model, initial_model, critic_model, generate_limit=GENERATE_LIMIT)
